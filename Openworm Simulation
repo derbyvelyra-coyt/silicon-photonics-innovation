@@ -116,6 +116,26 @@ def run_simulation(steps=15):
             print("  ==> MOTOR ACTION: FORWARD PROPULSION")
 
         print()
+# C. elegans Connectome Sub-Circuit Emulator
+
+A lightweight Python simulation of biological neural signal propagation inspired by the *Caenorhabditis elegans* connectome.
+
+## Overview
+This project emulates a functional 6-neuron sub-circuit of *C. elegans* using Leaky Integrate-and-Fire (LIF) and graded potential dynamics. It models sensory input processing, interneuron integration, and motor response activation without explicit conditional rule programming.
+
+## Neural Architecture
+The circuit consists of:
+- **Sensory Neurons**: `ASH_L` (Obstacle detection), `ALM_R` (Touch sensation)
+- **Interneurons**: `AVA_L` (Reverse command), `AVB_R` (Forward command)
+- **Motor Neurons**: `DA_1` (Reverse locomotion), `DB_1` (Forward locomotion)
+
+## Flow
+`Sensory Stimulus` ➔ `Interneuron Integration` ➔ `Motor Neuron Spike` ➔ `Behavioral Output`
+
+## Usage
+Run the script using Python 3.x:
+```bash
+python main.py
         time.sleep(0.3)
 
 
