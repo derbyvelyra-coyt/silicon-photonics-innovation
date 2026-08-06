@@ -1,0 +1,123 @@
+"""
+C. elegans Mini-Brain Emulator
+------------------------------
+A lightweight Python simulation of a simplified C. elegans neural sub-circuit.
+Simulates sensory-to-motor signal propagation using leaky integrate-and-fire (LIF) 
+and graded potential dynamics.
+"""
+
+import time
+import random
+
+class Neuron:
+    def __init__(self, name, neuron_type, base_potential=-70.0):
+        self.name = name
+        self.type = neuron_type  # 'sensory', 'inter', 'motor'
+        self.potential = base_potential
+        self.base_potential = base_potential
+        self.threshold = -50.0
+        self.synapses = {}  # {target_neuron: weight}
+
+    def connect(self, target_neuron, weight):
+        """Connects this neuron to a target neuron with a given synaptic weight."""
+        self.synapses[target_neuron] = weight
+
+    def receive_input(self, current):
+        """Simulates graded potential changes."""
+        self.potential += current
+
+    def update(self):
+        """Updates neural state and propagates signals if threshold is passed."""
+        fired = False
+        if self.potential >= self.threshold:
+            fired = True
+            # Propagate output to connected downstream neurons
+            for target, weight in self.synapses.items():
+                target.receive_input(weight)
+            # Reset potential
+            self.potential = self.base_potential
+        else:
+            # Decay towards rest potential (Leaky dynamic)
+            self.potential += (self.base_potential - self.potential) * 0.2
+
+        return fired
+
+
+class CElegansMiniConnectome:
+    def __init__(self):
+        self.neurons = {}
+        self._build_circuit()
+
+    def _build_circuit(self):
+        # 1. Create Neurons (Sensory -> Interneurons -> Motor)
+        # Sensory
+        self.neurons['ASH_L'] = Neuron('ASH_L', 'sensory')  # Nociceptive / Obstacle sensing
+        self.neurons['ALM_R'] = Neuron('ALM_R', 'sensory')  # Touch sensing
+
+        # Interneurons (Processing)
+        self.neurons['AVA_L'] = Neuron('AVA_L', 'inter')    # Backward command center
+        self.neurons['AVB_R'] = Neuron('AVB_R', 'inter')    # Forward command center
+
+        # Motor Neurons (Action)
+        self.neurons['DA_1'] = Neuron('DA_1', 'motor')      # Backward muscle driver
+        self.neurons['DB_1'] = Neuron('DB_1', 'motor')      # Forward muscle driver
+
+        # 2. Wire Synapses (Connectome Topology)
+        self.neurons['ASH_L'].connect(self.neurons['AVA_L'], weight=15.0) # Obstacle -> Reverse
+        self.neurons['ALM_R'].connect(self.neurons['AVB_R'], weight=12.0) # Gentle touch -> Forward
+        self.neurons['AVA_L'].connect(self.neurons['DA_1'], weight=18.0)  # Trigger Reverse Motion
+        self.neurons['AVB_R'].connect(self.neurons['DB_1'], weight=15.0)  # Trigger Forward Motion
+
+    def inject_sensory_stimulus(self, neuron_name, intensity):
+        """Simulates external environmental input."""
+        if neuron_name in self.neurons:
+            self.neurons[neuron_name].receive_input(intensity)
+
+    def step(self):
+        """Runs a single tick of the connectome simulation."""
+        firing_state = {}
+        for name, neuron in self.neurons.items():
+            fired = neuron.update()
+            firing_state[name] = {
+                'potential': round(neuron.potential, 2),
+                'fired': fired
+            }
+        return firing_state
+
+
+def run_simulation(steps=15):
+    brain = CElegansMiniConnectome()
+    print("=" * 60)
+    print(" C. ELEGANS CONNECTOME SUB-CIRCUIT SIMULATOR ")
+    print("=" * 60)
+    print("Initializing 6-Neuron Circuit: Sensory -> Inter -> Motor\n")
+
+    for step in range(1, steps + 1):
+        # Random environmental touch/obstacle event
+        if step == 3:
+            print(">> EVENT: Obstacle detected near head (Stimulating ASH_L)")
+            brain.inject_sensory_stimulus('ASH_L', intensity=25.0)
+        elif step == 9:
+            print(">> EVENT: Gentle tail touch (Stimulating ALM_R)")
+            brain.inject_sensory_stimulus('ALM_R', intensity=22.0)
+
+        state = brain.step()
+
+        # Display status
+        print(f"--- Step {step:02d} ---")
+        for name, data in state.items():
+            status = "⚡ DISPARO (SPIKE)" if data['fired'] else f"mV: {data['potential']}"
+            print(f"  [{name}] ({brain.neurons[name].type.upper()}): {status}")
+
+        # Check Motor Outputs
+        if state['DA_1']['fired']:
+            print("  ==> MOTOR ACTION: BACKWARD RECOIL (Reverse Movement)")
+        if state['DB_1']['fired']:
+            print("  ==> MOTOR ACTION: FORWARD PROPULSION")
+
+        print()
+        time.sleep(0.3)
+
+
+if __name__ == "__main__":
+    run_simulation()
