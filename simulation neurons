@@ -1,0 +1,157 @@
+"""
+Neural Renormalization Group (RG) & Coarse-Graining Simulation
+--------------------------------------------------------------
+Author: Your Name
+Description: 
+    This script simulates a neural population operating near a critical regime 
+    and performs data-driven Coarse-Graining via correlation-based grouping.
+    It demonstrates scale invariance by analyzing the distribution of 
+    coarse-grained coarse variables across RG iterations.
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.spatial.distance import pdist, squareform
+
+
+class NeuralRGSimulation:
+    def __init__(self, num_neurons: int = 1024, num_timesteps: int = 10000, seed: int = 42):
+        """
+        Initialize synthetic neural activity with correlated spatiotemporal dynamics.
+        """
+        np.random.seed(seed)
+        self.N = num_neurons
+        self.T = num_timesteps
+        self.activity_matrix = None
+
+    def generate_critical_activity(self, coupling_strength: float = 0.95):
+        """
+        Generates correlated binary/continuous activity using a latent Gaussian process 
+        to mimic neural criticality.
+        """
+        print(f"Generating activity for N={self.N} neurons over T={self.T} timesteps...")
+        
+        # Random spatial placement of neurons in a 2D space
+        positions = np.random.rand(self.N, 2)
+        dist_matrix = squareform(pdist(positions))
+        
+        # Spatial covariance kernel (exponential decay)
+        cov_matrix = np.exp(-dist_matrix / 0.1) + 1e-4 * np.eye(self.N)
+        
+        # Sampling from multivariate normal distribution
+        latent_factors = np.random.multivariate_normal(
+            mean=np.zeros(self.N), 
+            cov=cov_matrix, 
+            size=self.T
+        ).T  # Shape: (N, T)
+        
+        # Standardize features (zero mean, unit variance)
+        self.activity_matrix = (latent_factors - np.mean(latent_factors, axis=1, keepdims=True)) / np.std(latent_factors, axis=1, keepdims=True)
+        print("Activity matrix generated successfully.")
+
+    def coarse_grain_step(self, current_matrix: np.ndarray, cluster_size: int = 2) -> np.ndarray:
+        """
+        Performs one step of Coarse-Graining:
+        1. Calculates correlation matrix.
+        2. Pairs the most correlated neurons.
+        3. Aggregates paired neurons into a coarse-grained super-neuron.
+        """
+        N_curr, T_curr = current_matrix.shape
+        if N_curr < cluster_size:
+            raise ValueError("Not enough neurons left to coarse-grain.")
+
+        # Compute correlation matrix
+        corr_matrix = np.corrcoef(current_matrix)
+        np.fill_diagonal(corr_matrix, -np.inf)  # Ignore self-correlation
+
+        paired = np.zeros(N_curr, dtype=bool)
+        new_units = []
+
+        # Pair most correlated neurons
+        for _ in range(N_curr // cluster_size):
+            # Find max unvisited pair
+            unvisited_indices = np.where(~paired)[0]
+            if len(unvisited_indices) < cluster_size:
+                break
+                
+            sub_corr = corr_matrix[np.ix_(unvisited_indices, unvisited_indices)]
+            i_sub, j_sub = np.unravel_index(np.argmax(sub_corr), sub_corr.shape)
+            
+            idx1 = unvisited_indices[i_sub]
+            idx2 = unvisited_indices[j_sub]
+
+            paired[idx1] = True
+            paired[idx2] = True
+
+            # Create Super-Neuron (Normalized Sum)
+            super_neuron = (current_matrix[idx1] + current_matrix[idx2]) / np.sqrt(2)
+            new_units.append(super_neuron)
+
+        # Standardize new coarse-grained activity
+        coarse_matrix = np.array(new_units)
+        coarse_matrix = (coarse_matrix - np.mean(coarse_matrix, axis=1, keepdims=True)) / np.std(coarse_matrix, axis=1, keepdims=True)
+        
+        return coarse_matrix
+
+    def run_rg_flow(self, steps: int = 4):
+        """
+        Iterates the RG transformation across multiple scale steps and visualizes distributions.
+        """
+        if self.activity_matrix is None:
+            self.generate_critical_activity()
+
+        current_matrix = self.activity_matrix.copy()
+        history = [current_matrix]
+
+        print("\n--- Running Renormalization Group Flow ---")
+        for step in range(1, steps + 1):
+            current_matrix = self.coarse_grain_step(current_matrix)
+            history.append(current_matrix)
+            print(f"RG Step {step}: Remaining Super-Neurons = {current_matrix.shape[0]}")
+
+        self.plot_rg_results(history)
+
+    def plot_rg_results(self, history: list):
+        """
+        Plot activity probability distributions and variance scaling across RG steps.
+        """
+        plt.style.use('seaborn-v0_8-darkgrid' if 'seaborn-v0_8-darkgrid' in plt.style.available else 'default')
+        fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+        # Plot 1: Probability Distribution Convergence (Scale Invariance)
+        ax1 = axes[0]
+        for i, matrix in enumerate(history):
+            flat_activity = matrix.flatten()
+            counts, bin_edges = np.histogram(flat_activity, bins=50, density=True)
+            bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+            ax1.plot(bin_centers, counts, label=f'Step {i} (N={matrix.shape[0]})', linewidth=2, alpha=0.8)
+
+        ax1.set_yscale('log')
+        ax1.set_title("Activity Probability Distribution P(s) across RG Steps", fontsize=12)
+        ax1.set_xlabel("Normalized Activity (s)")
+        ax1.set_ylabel("Probability Density (Log Scale)")
+        ax1.legend()
+
+        # Plot 2: Correlation Structure Decay / Scale Flow
+        ax2 = axes[1]
+        step_sizes = [m.shape[0] for m in history]
+        variances = [np.var(np.mean(m, axis=0)) for m in history]
+        
+        ax2.plot(step_sizes, variances, 'o-', color='crimson', linewidth=2, markersize=8)
+        ax2.set_xscale('log')
+        ax2.set_yscale('log')
+        ax2.set_gca().invert_xaxis()  # Coarse graining moves left (fewer variables)
+        ax2.set_title("Global Signal Variance vs. System Scale (N)", fontsize=12)
+        ax2.set_xlabel("Number of Remaining Nodes (N)")
+        ax2.set_ylabel("Variance of Mean Activity")
+
+        plt.tight_layout()
+        plt.savefig("rg_neural_simulation.png", dpi=300)
+        print("\nResults saved successfully as 'rg_neural_simulation.png'.")
+        plt.show()
+
+
+if __name__ == "__main__":
+    # Run simulation
+    sim = NeuralRGSimulation(num_neurons=1024, num_timesteps=8000)
+    sim.run_rg_flow(steps=5)
