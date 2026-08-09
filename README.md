@@ -1,126 +1,67 @@
-<div align="center">
+Neuromorphic Engine (NeroCore)High-performance event-driven neural simulation engine for research in mind uploading, connectomics, and Spiking Neural Networks (SNN).NeroCore is a C++20 / Rust framework designed to simulate large-scale brain architectures by balancing bio-physical accuracy with computational efficiency. Its primary goal is to bridge the gap between molecular biology and asynchronous digital processing to model emergent dynamics and evaluate state continuity (mind uploading).📸 Key FeaturesFlexible Dynamic Models: Native support for Hodgkin-Huxley (sub-cellular biophysical precision) and Izhikevich ($10\times$ speedup for large-scale simulations).Event-Driven Architecture (Spiking): Propagation of asynchronous spike trains with customizable axonal delays ($\Delta t$).Integrated Information Computation ($\Phi$): Experimental module to evaluate re-entrant network cohesion based on Integrated Information Theory (IIT).Massive Parallelism: Distributed execution across CPU/GPU using pre-computed Look-Up Tables (LUTs) to eliminate transcendental function overhead at runtime.Snapshotted State Persistence: High-performance binary serialization to freeze, pause, inspect, or transfer the full electrochemical state $S(t_0)$ of the network.🏗️ System Architecture                        ┌───────────────────────────────┐
+                        │         Stimulus Input        │
+                        │      I_ext / Spike Trains     │
+                        └───────────────┬───────────────┘
+                                        │
+                                        ▼
+ ┌─────────────────────────────────────────────────────────────────────────────┐
+ │                       Event Queue / Spiking Scheduler                       │
+ └──────┬───────────────────────────────┬───────────────────────────────┬──────┘
+        │                               │                               │
+        ▼                               ▼                               ▼
+ ┌──────────────┐               ┌──────────────┐               ┌──────────────┐
+ │   Neuron 1   │               │   Neuron 2   │               │   Neuron N   │
+ │ (Izhikevich) │               │ (Izhikevich) │               │ (Hodgkin-H.) │
+ └──────┬───────┘               └──────┬───────┘               └──────┬───────┘
+        │                               │                               │
+        └───────────────────────────────┼───────────────────────────────┘
+                                        │
+                                        ▼
+                        ┌───────────────────────────────┐
+                        │    Cohesion Evaluator (Φ)     │
+                        │     Graph Mapping G(t)        │
+                        └───────────────────────────────┘
+🛠️ PrerequisitesC++20 Compiler (GCC 11+, Clang 13+) or Rust 1.75+CMake $3.22+$GoogleTest (for unit testing suite)CUDA Toolkit 12.0+ (Optional, for massive GPU acceleration)🚀 Installation & BuildBash# 1. Clone the repository
+git clone https://github.com/your-org/nerocore.git
+cd nerocore
 
-# Silicon Photonics & Optical Computing
+# 2. Create build directory
+mkdir build && cd build
 
-**A Technical Reference on Waveguiding, Electro-Optic Modulation, and Photonic Integration in Modern Semiconductor Architectures**
+# 3. Configure with CMake
+cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_CUDA=OFF ..
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-active-brightgreen.svg)]()
-[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-blue.svg)](#contributing)
-[![Made with Markdown](https://img.shields.io/badge/docs-markdown-informational.svg)]()
+# 4. Build the project
+make -j$(nproc)
+💻 Quickstart ExampleHere is a quick example of initializing a small network of Izhikevich neurons using the engine:C++#include "nerocore/engine.hpp"
+#include "nerocore/models/izhikevich.hpp"
+#include <iostream>
 
-</div>
+int main() {
+    // 1. Initialize simulation engine with step size dt = 0.5 ms
+    nero::Engine sim(/*dt=*/0.5);
 
----
+    // 2. Define parameters for a "Regular Spiking" neuron
+    nero::IzhikevichConfig config{
+        .a = 0.02,
+        .b = 0.2,
+        .c = -65.0,
+        .d = 8.0
+    };
 
-## Table of Contents
+    // 3. Add neuron node and inject external stimulus current (I_ext = 10.0 pA)
+    auto neuron_id = sim.add_neuron(config);
+    sim.set_external_current(neuron_id, 10.0);
 
-- [Overview](#overview)
-- [Core Physical Principles](#core-physical-principles)
-  - [1. High Index Contrast & Waveguiding](#1-high-index-contrast--waveguiding)
-  - [2. Carrier Dispersion Effect (Electro-Optic Modulation)](#2-carrier-dispersion-effect-electro-optic-modulation)
-- [On-Chip Components](#on-chip-components)
-- [Applications & Quantum Interconnects](#applications--quantum-interconnects)
-- [Mathematical Frameworks & References](#mathematical-frameworks--references)
-- [Repository Structure](#repository-structure)
-- [Contributing](#contributing)
-- [License](#license)
+    // 4. Run simulation for 100 ms (200 steps at dt = 0.5 ms)
+    for (int step = 0; step < 200; ++step) {
+        sim.step();
+        
+        if (sim.did_fire(neuron_id)) {
+            std::cout << "[SPIKE] Detected spike at t = " << step * 0.5 << " ms" << std::endl;
+        }
+    }
 
----
-
-## Overview
-
-**Silicon Photonics (SiP)** leverages silicon as an optical transmission medium, encoding and routing data as photons rather than electrons. By integrating optical interfaces directly onto silicon integrated circuits, SiP addresses the bandwidth density, latency, and thermal-dissipation limitations inherent to copper-based electrical interconnects in high-performance computing (HPC) and quantum information systems.
-
-This repository serves as a living technical reference — documenting the physical principles, component-level building blocks, and system-level applications that define the current state of the art in photonic integration.
-
----
-
-## Core Physical Principles
-
-### 1. High Index Contrast & Waveguiding
-
-Silicon ($\text{Si}$, refractive index $n \approx 3.45$ at $1550\,\text{nm}$) surrounded by silicon dioxide cladding ($\text{SiO}_2$, $n \approx 1.45$) produces a high refractive-index contrast, enabling strong total internal reflection (TIR) and tight optical confinement.
-
-| Property | Specification |
-|---|---|
-| Waveguide cross-section | typically $220\,\text{nm} \times 500\,\text{nm}$ |
-| Minimum bend radius | $\sim 5\,\mu\text{m}$, with negligible radiation loss |
-| Operating windows | **O-band** ($1260$–$1360\,\text{nm}$), **C-band** ($1530$–$1565\,\text{nm}$) |
-| Silicon bandgap | $E_g \approx 1.12\,\text{eV}$ (transparent at telecom wavelengths) |
-
-### 2. Carrier Dispersion Effect (Electro-Optic Modulation)
-
-Pure silicon exhibits no linear electro-optic (Pockels) effect due to its centrosymmetric crystal structure. High-speed modulation is instead achieved through the **plasma dispersion effect**, whereby free-carrier concentration modulates the real refractive index:
-
-$$
-\Delta n = -\frac{e^2 \lambda^2}{8 \pi^2 c^2 \varepsilon_0 n} \left( \frac{\Delta N_e}{m_{ce}^*} + \frac{\Delta N_h}{m_{ch}^*} \right)
-$$
-
-Modulating electron ($\Delta N_e$) and hole ($\Delta N_h$) concentrations alters both the real refractive index ($\Delta n$) and the absorption coefficient ($\Delta \alpha$), forming the physical basis for phase and amplitude modulation — typically implemented via PN-junction carrier depletion.
-
----
-
-## On-Chip Components
-
-| Component | Primary Function | Typical Implementation |
-|---|---|---|
-| Grating / Edge Couplers | Off-chip ↔ on-chip optical coupling | Subwavelength gratings (SWG), inverse tapers |
-| Mach-Zehnder Modulator (MZM) | Electrical-to-optical conversion | Balanced/unbalanced interferometer, PN depletion |
-| Micro-Ring Resonators (MRR) | Wavelength-selective routing (WDM) | High-Q resonant filters |
-| Photodetectors | Optical-to-electrical conversion | Epitaxially grown germanium (Ge) on silicon |
-
----
-
-## Applications & Quantum Interconnects
-
-- **Co-Packaged Optics (CPO):** Integrating optical transceivers directly onto the same substrate as processors and GPUs, bypassing parasitic losses associated with copper traces.
-- **Photonic Integrated Circuits (PICs):** Multi-channel Wavelength Division Multiplexing (WDM) enabling terabit-scale data transfer at sub-picojoule energy per bit ($< 1\,\text{pJ/bit}$).
-- **Integrated Quantum Photonics:** On-chip manipulation of single-photon qubits via phase shifters and directional couplers, paired with integrated superconducting nanowire single-photon detectors (SNSPDs).
-
----
-
-## Mathematical Frameworks & References
-
-**Maxwell's equations in dielectric waveguides:**
-
-$$
-\nabla \times (\nabla \times \mathbf{E}) - k_0^2 n^2(\mathbf{r})\, \mathbf{E} = 0
-$$
-
-**Free-carrier absorption (Soref & Bennett model):** empirical relations describing refractive-index and absorption-coefficient shifts as a function of carrier concentration at $\lambda = 1550\,\text{nm}$.
-
----
-
-## Repository Structure
-
-```
-.
-├── docs/           # Extended technical notes and derivations
-├── simulations/    # FDTD / photonic simulation scripts (Lumerical, Meep, etc.)
-├── figures/        # Diagrams and reference plots
-└── README.md
-```
-
----
-
-## Contributing
-
-Contributions are welcome. If you'd like to propose corrections, extend the theoretical background, or share simulation scripts (Lumerical, Meep, PyFDTD, etc.), please open a Pull Request or start a Discussion.
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/your-topic`)
-3. Commit your changes
-4. Open a Pull Request describing the addition
-
----
-
-## License
-
-Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for details.
-
-<div align="center">
-
-*Maintained as an open technical documentation log.*
-
-</div>
+    return 0;
+}
+📊 Neuron Model BenchmarksPerformance metrics obtained from simulating $10,000$ neurons for $1,000\text{ ms}$ of virtual time on an $8$-core CPU:ModelBio-AccuracyFLOPs/StepReal-Time Cap (1 Thread)Hodgkin-HuxleyHigh (4 ODEs, exp/div)$\sim 120$$\sim 5,000$ neuronsIzhikevichMedium-High (2 Quadratic ODEs)$\sim 13$$\sim 150,000$ neuronsLeaky Integrate-and-FireLow (1 Linear ODE)$\sim 5$$\sim 500,000$ neurons🗺️ Roadmap[x] Implementation of numerical solvers (Exponential Euler, RK4).[x] Asynchronous event engine for axonal delays.[ ] Q3 2026: Dynamic connectome matrix $G(t) = (V, E(t), W(t))$ integration with Spike-Timing-Dependent Plasticity (STDP).[ ] Q4 2026: Distributed CUDA module for scaling to $>1,000,000$ nodes.[ ] Q1 2027: Full minimum-partition search algorithm implementation for calculating $\Phi$.
