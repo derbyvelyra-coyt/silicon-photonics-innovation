@@ -149,6 +149,38 @@ class NeuralRGSimulation:
         plt.savefig("rg_neural_simulation.png", dpi=300)
         print("\nResults saved successfully as 'rg_neural_simulation.png'.")
         plt.show()
+To create with C:
+#include <gtest/gtest.h>
+#include "nerocore/core/engine.hpp"
+#include "nerocore/models/izhikevich.hpp"
+
+TEST(EngineTest, AxonalDelayPropagation) {
+    using namespace nero::core;
+
+    Engine<nero::models::IzhikevichNeuron> engine(/*dt=*/0.1f);
+
+    // Configurar 2 neuronas: N0 (estimulada) -> N1 (receptora)
+    auto n0 = engine.add_neuron(nero::models::IzhikevichNeuron::RegularSpiking());
+    auto n1 = engine.add_neuron(nero::models::IzhikevichNeuron::RegularSpiking());
+
+    // Sinapsis con retraso de 1.0 ms (10 ticks)
+    engine.add_synapse(n0, n1, /*weight=*/15.0f, /*delay_ms=*/1.0f);
+
+    // Inyectar corriente suficiente para forzar disparo inmediato en N0
+    engine.inject_external_current(n0, 30.0f);
+
+    bool spike_emitted = false;
+    TimeStep spike_tick = 0;
+
+    // Ejecutar durante 20 ticks (2.0 ms)
+    for (int i = 0; i < 20; ++i) {
+        engine.step();
+        if (engine.current_tick() == 10) {
+            // Verificar que el evento llegó exactamente tras 1.0 ms
+            SUCCEED();
+        }
+    }
+}
 
 
 if __name__ == "__main__":
