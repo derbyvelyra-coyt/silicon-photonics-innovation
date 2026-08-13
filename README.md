@@ -63,5 +63,3 @@ int main() {
     }
 
     return 0;
-}
-📊 Neuron Model BenchmarksPerformance metrics obtained from simulating $10,000$ neurons for $1,000\text{ ms}$ of virtual time on an $8$-core CPU:ModelBio-AccuracyFLOPs/StepReal-Time Cap (1 Thread)Hodgkin-HuxleyHigh (4 ODEs, exp/div)$\sim 120$$\sim 5,000$ neuronsIzhikevichMedium-High (2 Quadratic ODEs)$\sim 13$$\sim 150,000$ neuronsLeaky Integrate-and-FireLow (1 Linear ODE)$\sim 5$$\sim 500,000$ neurons🗺️ Roadmap[x] Implementation of numerical solvers (Exponential Euler, RK4).[x] Asynchronous event engine for axonal delays.[ ] Q3 2026: Dynamic connectome matrix $G(t) = (V, E(t), W(t))$ integration with Spike-Timing-Dependent Plasticity (STDP).[ ] Q4 2026: Distributed CUDA module for scaling to $>1,000,000$ nodes.[ ] Q1 2027: Full minimum-partition search algorithm implementation for calculating $\Phi$.
