@@ -1,0 +1,49 @@
+import numpy as np
+
+class OpticalIntensityModulator:
+    """
+    Models a Mach-Zehnder Interferometer (MZI) intensity modulator 
+    representing an optical synaptic weight.
+    """
+    def __init__(self, v_pi: float = 3.3, attenuation_db: float = 0.2):
+        self.v_pi = v_pi  # Voltage required for pi phase shift
+        self.attenuation = 10 ** (-attenuation_db / 10.0)
+
+    def compute_transmission(self, v_gate: np.ndarray, phase_offset: float = 0.0) -> np.ndarray:
+        """
+        Calculates optical intensity transmittance T(V) based on control voltage.
+        T = T_0 * cos^2( (pi * V / (2 * V_pi)) + phi_0 )
+        """
+        phase = (np.pi * v_gate / (2.0 * self.v_pi)) + phase_offset
+        transmittance = self.attenuation * (np.cos(phase) ** 2)
+        return transmittance
+
+
+class PhotodetectorTransistorNeuron:
+    """
+    Models a silicon-photonic integrated neuron: photodetector current generation
+    coupled to a MOSFET integrate-and-fire circuit.
+    """
+    def __init__(self, responsivity: float = 0.85, v_threshold: float = 1.0, 
+                 capacitance: float = 1e-12, r_leak: float = 1e6):
+        self.responsivity = responsivity  # A/W
+        self.v_threshold = v_threshold    # Volts
+        self.capacitance = capacitance    # Farads
+        self.r_leak = r_leak              # Ohms (Leak resistance)
+
+    def integrate_and_fire(self, optical_power_in: np.ndarray, v_mem: np.ndarray, dt: float):
+        """
+        Calculates updated membrane voltage based on injected photocurrent and leak current.
+        """
+        i_photo = self.responsivity * optical_power_in
+        i_leak = v_mem / self.r_leak
+        
+        # dV/dt = (I_photo - I_leak) / C
+        dv = ((i_photo - i_leak) / self.capacitance) * dt
+        v_next = v_mem + dv
+        
+        # Determine firing neurons
+        spikes = v_next >= self.v_threshold
+        v_next[spikes] = 0.0  # Reset after spike
+        
+        return v_next, spikes
