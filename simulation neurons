@@ -1,7 +1,7 @@
 """
 Neural Renormalization Group (RG) & Coarse-Graining Simulation
 --------------------------------------------------------------
-Author: Your Name
+Author: Derby 
 Description: 
     This script simulates a neural population operating near a critical regime 
     and performs data-driven Coarse-Graining via correlation-based grouping.
